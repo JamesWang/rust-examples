@@ -11,3 +11,9 @@ once_cell="1.12.0"
 
 [features]
 default = ["sdl2/image"]
+
+[[bin]]
+name = "show_image"
+
+[[bin]]
+name = "win"
