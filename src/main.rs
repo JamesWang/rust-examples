@@ -1,6 +1,8 @@
 
 pub mod files;
 pub mod window;
+pub mod macros;
+pub mod rmusic;
 
 extern crate sdl2;
 

@@ -16,5 +16,5 @@ fn main() {
     
     let mut canvas = create_canvas(&sdl_context);
     
-    render_window(sdl_context, &mut canvas, *Lazy::force(&GREEN), &|tc|{image(tc, "src/assets/lr.jpg")});
+    render_window(sdl_context, &mut canvas, *Lazy::force(&GREEN), &|tc|image(tc, "src/assets/lr.jpg"));
 }
