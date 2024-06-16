@@ -1,14 +1,14 @@
 extern crate gio;
 extern crate gtk;
+extern crate gdk_pixbuf;
+extern crate id3;
+extern crate gtk_sys;
 
-use std::{env, path};
+use std::env;
 
 use gio::{ApplicationExt, ApplicationExtManual, ApplicationFlags};
 use gtk:: {
-    Application,
-    ApplicationWindow,
-    WidgetExt,
-    GtkWindowExt
+    Application, ApplicationWindow, GtkWindowExt, WidgetExt
 };
 
 use gtk:: {

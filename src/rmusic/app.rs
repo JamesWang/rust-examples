@@ -1,6 +1,9 @@
-use gtk::{Application, ApplicationWindow, ContainerExt, GtkWindowExt, ToolButtonExt, WidgetExt};
+use std::{path::PathBuf, rc::Rc};
 
-use super::{toolbar::MusicToolbar, PAUSE_STOCK, PLAY_STOCK};
+use gtk::{Application, ApplicationWindow, ContainerExt, DialogExt, FileChooserDialog, FileChooserExt, FileFilter, FileFilterExt, GtkWindowExt, ToolButtonExt, WidgetExt};
+use gtk_sys::{GTK_RESPONSE_ACCEPT, GTK_RESPONSE_CANCEL};
+
+use super::{playlist::Playlist, toolbar::MusicToolbar, PAUSE_STOCK, PLAY_STOCK};
 use gtk:: {
     Adjustment,
     Image,
@@ -12,7 +15,8 @@ use gtk:: {
 
 pub struct App {
     adjustment: Adjustment,
-    cover: Image,
+    //cover: Image,
+    playlist: Rc<Playlist>,
     toolbar: MusicToolbar,
     window: ApplicationWindow,
 }
@@ -26,20 +30,24 @@ impl App {
 
         let toolbar = MusicToolbar::new();
         vbox.add(toolbar.toolbar());        
-        let cover = Image::new();
-        cover.set_from_file("src/assets/beach.jpg");
-        vbox.add(&cover);
+        //let cover = Image::new();
+        //cover.set_from_file("src/assets/beach.jpg");
+        //vbox.add(&cover);
 
         let adjustment = Adjustment::new(0.0, 0.0, 10.0, 0.0, 0.0, 0.0);
         let scale = Scale::new(Horizontal, &adjustment);
         scale.set_draw_value(false);
         vbox.add(&scale);
 
+        let playlist = Rc::new(Playlist::new());
+        vbox.add(playlist.view());
+
         window.show_all();
 
         let app = App {
             adjustment,
-            cover,
+            //cover,
+            playlist,
             toolbar,
             window,
         };
@@ -53,8 +61,16 @@ impl App {
     }
     pub fn connect_toolbar_events(&self){
         let window = self.window.clone();
+        let playlist = self.playlist.clone();
+        let parent = self.window.clone();
         self.toolbar.quit_button.connect_clicked(move|_|{
             window.destroy();
+        });
+        self.toolbar.open_button.connect_clicked(move|_|{
+            let file = Self::show_open_dialog(&parent);
+            if let Some(f) = file {
+                playlist.add(&f)
+            }
         });
         let play_button = self.toolbar.play_button.clone();
         self.toolbar.play_button.connect_clicked(move|_|{
@@ -65,4 +81,27 @@ impl App {
             }
         });
     }
+
+
+fn show_open_dialog(parent: &ApplicationWindow) -> Option<PathBuf> {
+    let mut file = None;
+    let dialog = FileChooserDialog::new(
+        Some("Select an MP3 audio file"), 
+        Some(parent), 
+        gtk::FileChooserAction::Open
+    );
+
+    let filter = FileFilter::new();
+    filter.add_mime_type("audio/mp3");
+    filter.set_name("MP3 audio file");
+    dialog.add_filter(&filter);
+    dialog.add_button("Cancel", GTK_RESPONSE_CANCEL);
+    dialog.add_button("Accept", GTK_RESPONSE_ACCEPT);
+    let result = dialog.run();
+    if result == GTK_RESPONSE_ACCEPT{
+        file = dialog.get_filename();
+    }
+    dialog.destroy();
+    file
+}
 }
