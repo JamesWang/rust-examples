@@ -1,7 +1,7 @@
 extern crate gdk_pixbuf;
 extern crate id3;
 
-use std::path::Path;
+use std::{cell::RefCell, cmp::max, path::Path, sync::{Arc, Mutex}, thread};
 use gdk_pixbuf::{InterpType, Pixbuf, PixbufLoader};
 use gtk::{
     CellLayoutExt,
@@ -25,6 +25,7 @@ use gtk::{
 
 use id3::Tag;
 use self::Visibility::*;
+use super::{player::{Player, State}, utils::to_millis};
 
 const THUMBNAIL_COLUMN: u32 = 0;
 const TITLE_COLUMN: u32 = 1;
@@ -41,7 +42,10 @@ const THUMBNAIL_SIZE: i32 = 64;
 const INTERP_HYPER: InterpType = 3;
 
 pub struct Playlist {
+    current_song: RefCell<Option<String>>,
     model: ListStore,
+    player: Player,
+    state: Arc<Mutex<State>>,
     treeview: TreeView,
 }
 
@@ -54,7 +58,7 @@ enum Visibility {
 
 impl Playlist {
 
-    pub fn new() -> Self {
+    pub fn new(state: Arc<Mutex<State>>) -> Self {
         let model = ListStore::new(&[
             Pixbuf::static_type(),
             Type::String,
@@ -70,9 +74,12 @@ impl Playlist {
         treeview.set_hexpand(true);
         treeview.set_vexpand(true);
         Self::create_columns(&treeview);
-
+        
         Playlist {
+            current_song: RefCell::new(None),
             model,
+            player: Player::new(state.clone()),
+            state,
             treeview
         }
     }
@@ -130,6 +137,7 @@ impl Playlist {
     }
 
     pub fn add(&self, path: &Path) {
+        self.compute_duration(path);
         let filename = path.file_stem().unwrap_or_default().to_str().unwrap_or_default();
         let row = self.model.append();
         if let Ok(tag) = Tag::read_from_path(path) {
@@ -157,6 +165,110 @@ impl Playlist {
 
         let path = path.to_str().unwrap_or_default();
         self.model.set_value(&row, PATH_COLUMN, &path.to_value());
+    }
+
+    pub fn remove_selection(&self) {
+        let selection = self.treeview.get_selection();
+        println!("remove_selection {:?}", selection.get_selected_rows().1);
+        if let Some((_, iter)) = selection.get_selected() {
+            self.model.remove(&iter);
+        }
+    }
+    pub fn pixbuf(&self) -> Option<Pixbuf> {
+        let selection = self.treeview.get_selection();
+        if let Some((_, iter)) = selection.get_selected(){
+            let value = self.model.get_value(&iter, PIXBUF_COLUMN as i32);
+            return value.get::<Pixbuf>();
+        }
+        None
+    }
+
+    fn selected_path(&self) -> Option<String> {
+        let selection = self.treeview.get_selection();
+        if let Some((_, iter)) = selection.get_selected() {
+            let value = self.model.get_value(&iter,PATH_COLUMN as i32);
+            return value.get::<String>();
+        }
+        None
+    }
+    pub fn pause(&self) {
+        self.player.pause()
+    }
+    
+    pub fn play(&self) -> bool {
+        if let Some(path) = self.selected_path() {
+            if self.player.is_paused() && Some(&path) == self.path().as_ref() {
+                self.player.resume();
+            } else {
+                self.player.load(&path);
+                *self.current_song.borrow_mut() = Some(path.into());
+            }
+            true
+        } else {
+            false
+        }
+    }
+    pub fn path(&self)-> Option<String> {
+        self.current_song.borrow().clone()
+    }
+    pub fn stop(&self) {
+        *self.current_song.borrow_mut() = None;
+        self.player.stop();
+    }
+
+    pub fn next(&self) -> bool {
+        let selection = self.treeview.get_selection();
+        let next_iter = 
+            if let Some((_, iter)) = selection.get_selected() {
+                if !self.model.iter_next(&iter){
+                    return false;
+                }
+                Some(iter)
+            } else {
+                self.model.get_iter_first()
+            };
+        if let Some(ref iter) = next_iter {
+            selection.select_iter(iter);
+            self.play();
+        }
+        next_iter.is_some()
+    }
+
+    pub fn previous(&self)  -> bool {
+        let selection = self.treeview.get_selection();
+        let previous_iter = 
+            if let Some((_, iter)) = selection.get_selected() {
+                if !self.model.iter_previous(&iter) {
+                    return false;
+                }
+                Some(iter)
+            } else {
+                self.model.iter_nth_child(None,max(0,self.model.iter_n_children(None)-1))
+            };
+        if let Some(ref iter) = previous_iter {
+            selection.select_iter(iter);
+            self.play();
+        }
+        previous_iter.is_some()
+    }
+    fn compute_duration(&self, path: &Path) {
+        let state = self.state.clone();
+        let path = path.to_string_lossy().to_string();
+        thread::spawn(move||{
+            if let Some(duration) = Player::compute_duration(&path) {
+                let mut state = state.lock().unwrap();
+                state.durations.insert(path, to_millis(duration));
+            }
+        });
+    }
+
+    pub fn load(&self, path: &Path) {
+        let mut reader = m3u::Reader::open(path).unwrap();
+        for entry in reader.entries() {
+            if let Ok(m3u::Entry::Path(path)) = entry {
+                self.add(&path);
+            }
+        }
     }
 }
 

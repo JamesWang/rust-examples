@@ -5,7 +5,7 @@ pub mod macros;
 pub mod rmusic;
 
 extern crate sdl2;
-
+extern crate m3u;
 use once_cell::sync::Lazy;
 use window::canvas::{create_canvas, image, render_window, GREEN};
 

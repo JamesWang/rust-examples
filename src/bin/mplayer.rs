@@ -3,6 +3,9 @@ extern crate gtk;
 extern crate gdk_pixbuf;
 extern crate id3;
 extern crate gtk_sys;
+extern crate crossbeam;
+extern crate pulse_simple;
+extern crate simplemad;
 
 use std::env;
 
