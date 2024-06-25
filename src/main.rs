@@ -3,6 +3,7 @@ pub mod files;
 pub mod window;
 pub mod macros;
 pub mod rmusic;
+pub mod epolls;
 
 extern crate sdl2;
 extern crate m3u;

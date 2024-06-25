@@ -2,9 +2,10 @@ use std::net::TcpStream;
 use std::os::fd::AsRawFd;
 use std::io::{self, Error};
 
-use crate::ffi::mffi as ffi;
+use crate::epolls::ffi::mffi as ffi;
 
-type Events = Vec<ffi::Event>;
+
+pub type Events = Vec<ffi::Event>;
 pub struct Poll {
     registry: Registry,
 }

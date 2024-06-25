@@ -19,6 +19,8 @@ crossbeam ="^0.3.0"
 pulse-simple = "^1.0.0"
 simplemad = "^0.8.1"
 m3u = "^1.0.0"
+actix-web ="4.3.1"
+
 
 [features]
 default = ["sdl2/image"]
