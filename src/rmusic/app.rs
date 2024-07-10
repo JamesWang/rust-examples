@@ -140,11 +140,13 @@ impl App {
         let playlist = self.playlist.clone();
         //let play_image = self.toolbar.play_image.clone();
         let cover = self.cover.clone();
+        let play_button = self.toolbar.play_button.clone();
         self.toolbar.stop_button.connect_clicked(move|_|{
             playlist.stop();
             cover.hide();
             //set_image_icon(&play_image, PLAY_ICON);
             //set_cover(&cover, &playlist);
+            play_button.set_stock_id(PLAY_STOCK);
         });
 
         let playlist = self.playlist.clone();

@@ -55,7 +55,7 @@ fn handle_events(events: &Vec<Event>, streams: &mut [TcpStream]) -> Result<usize
         let mut data = vec![0u8; 4096];
         loop {
             match streams[index].read(&mut data) {
-                Ok(n) if n == 0 => {
+                Ok(0) => {
                     handled_events +=1;
                     break;
                 }

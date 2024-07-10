@@ -5,7 +5,6 @@ extern crate id3;
 extern crate gtk_sys;
 extern crate crossbeam;
 extern crate pulse_simple;
-extern crate simplemad;
 
 use std::env;
 
@@ -20,6 +19,8 @@ use gtk:: {
     Toolbar, 
     ToolButton
 };
+use log::info;
+use simple_logger::SimpleLogger;
 
 const PLAY_STOCK: &str = "gtk-media-play";
 
@@ -28,6 +29,8 @@ mod app;
 
 
 fn main() {
+    SimpleLogger::new().with_utc_timestamps().init().unwrap();
+    info!("initialize logger");
     let application = Application::new("music.example", ApplicationFlags::empty())
     .expect("Application initialization failed");
     //application.connect_startup(startup_handler);

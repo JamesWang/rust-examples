@@ -137,7 +137,7 @@ impl Playlist {
     }
 
     pub fn add(&self, path: &Path) {
-        self.compute_duration(path);
+    
         let filename = path.file_stem().unwrap_or_default().to_str().unwrap_or_default();
         let row = self.model.append();
         if let Ok(tag) = Tag::read_from_path(path) {
@@ -251,16 +251,7 @@ impl Playlist {
         }
         previous_iter.is_some()
     }
-    fn compute_duration(&self, path: &Path) {
-        let state = self.state.clone();
-        let path = path.to_string_lossy().to_string();
-        thread::spawn(move||{
-            if let Some(duration) = Player::compute_duration(&path) {
-                let mut state = state.lock().unwrap();
-                state.durations.insert(path, to_millis(duration));
-            }
-        });
-    }
+
 
     pub fn load(&self, path: &Path) {
         let mut reader = m3u::Reader::open(path).unwrap();

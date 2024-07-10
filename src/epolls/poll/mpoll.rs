@@ -42,6 +42,9 @@ impl Poll {
             return Err(io::Error::last_os_error());
         }
         unsafe {
+            //events.set_len() is unsafe since we could potentially 
+            //set the length so that we could access memory that's 
+            //not been initialized yet in safe Rust
             events.set_len(res as usize);
         }
         Ok(())
@@ -60,6 +63,7 @@ impl Registry {
         };
         let op = ffi::EPOLL_CTL_ADD;
         let res = unsafe{
+            //this ffi api call (C code) is unsafe because it is not managed by safe Rust
             ffi::epoll_ctl(self.raw_fd, op, source.as_raw_fd(), &mut event)
         };
         if res < 0 {
@@ -71,6 +75,7 @@ impl Registry {
 impl Drop for Registry {
     fn drop(&mut self) {
         let res = unsafe {
+            //same here
             ffi::close(self.raw_fd)
         };
         if res < 0 {

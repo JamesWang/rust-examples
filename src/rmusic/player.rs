@@ -1,22 +1,22 @@
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::io::{BufReader, Seek};
+use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
-use std::time::Duration;
 
 use crossbeam::sync::SegQueue;
-use pulse_simple::Playback;
-use super::mp3::Mp3Decoder;
+use log::info;
+use rodio::Source;
+
+
 use self::Action::*;
 
-const BUFFER_SIZE: usize = 1000;
-const DEFAULT_RATE: u32 = 44100;
 
+#[derive(Debug)]
 enum Action {
-    Load(PathBuf), Stop,
+    Load(PathBuf), Pause, Stop, Resume,
 }
 
 #[derive(Clone)]
@@ -54,37 +54,39 @@ impl Player {
         {
             let app_state = app_state.clone();
             let event_loop = event_loop.clone();
-            thread::spawn(move||{
-                let mut buffer = [[0; 2]; BUFFER_SIZE];
-                let mut playback = Playback::new("MP3", "MP3 Playback", None, DEFAULT_RATE);
-                let mut source = None;
+            thread::spawn(move||{            
+                let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
+                let sink = rodio::Sink::try_new(&handle).unwrap();
+                let mut decoder: rodio::Decoder<BufReader<File>>;
                 loop {
                     if let Some(action) = event_loop.queue.try_pop() {
+                        info!("receive action={:?}", action);
                         match action {
                             Load(path) => {
-                                let file = File::open(path).unwrap();
-                                source = Some(Mp3Decoder::new(BufReader::new(file)).unwrap());
-                                let rate = source.as_ref().map(|source|source.sample_rate()).unwrap_or(DEFAULT_RATE);
-                                playback = Playback::new("MP3","MP3 Playback", None, rate);
-                                app_state.lock().unwrap().stopped = false;
+                                info!("open music file...");
+                                let mut file = File::open(&path).unwrap();
+                                file.seek(std::io::SeekFrom::Start(0)).unwrap();                                
+                                decoder = rodio::Decoder::new(BufReader::new(file)).unwrap();                                                                
+                                let total_duration = decoder.total_duration().unwrap().as_secs();
+                                sink.append(decoder);                                
+
+                                app_state.lock().unwrap().durations.insert(path.to_str().unwrap().to_string(), total_duration);
                             },
-                            Stop => {},
+                            Pause => {
+                                sink.pause();                                                            
+                            },
+                            Resume => {
+                                sink.play();
+                            },
+                            Stop => {
+                                sink.stop();
+                            },
                         }
-                    } else if *event_loop.playing.lock().unwrap() {
-                        let mut written = false;
-                        if let Some(ref mut source) = source {
-                            let size = Self::iter_to_buffer(source, &mut buffer);
-                            if size > 0 {
-                                playback.write(&buffer[..size]);
-                                written = true;
-                            }
-                        }
-                        if !written {
-                            app_state.lock().unwrap().stopped = true;
-                            *event_loop.playing.lock().unwrap() = false;
-                            source = None;
-                        }
+                    } else if *event_loop.playing.lock().unwrap() {                    
+                        //
                     }
+                    //let cur_pos = sink.get_pos().as_secs() /    
+                    app_state.lock().unwrap().current_time = sink.get_pos().as_secs();
                 }
 
             });
@@ -93,20 +95,8 @@ impl Player {
             app_state, 
             event_loop,
             paused: Cell::new(false),
+            //sink,
         }
-    }
-
-    fn iter_to_buffer<I: Iterator<Item=i16>>(iter: &mut I, buffer: &mut [[i16;2]; BUFFER_SIZE]) -> usize {
-        let mut iter = iter.take(BUFFER_SIZE);
-        let mut index = 0;
-        while let Some(sample1) = iter.next(){
-            if let Some(sample2) = iter.next() {
-                buffer[index][0] = sample1;
-                buffer[index][1] = sample2;
-            }
-            index +=1;
-        }
-        index
     }
     
     pub fn load(&self, path: &String) {
@@ -121,12 +111,13 @@ impl Player {
         self.paused.set(true);
         self.app_state.lock().unwrap().stopped = true;
         self.set_playing(false);
+        self.emit(Pause);
     }
 
     pub fn resume(&self) {
-        self.paused.set(true);
-        self.app_state.lock().unwrap().stopped = true;
+        self.paused.set(true);        
         self.set_playing(false);
+        self.emit(Resume);
     }
     fn set_playing(&self, playing: bool) {
         *self.event_loop.playing.lock().unwrap() = playing;
@@ -146,9 +137,5 @@ impl Player {
     }
     fn emit(&self, action: Action) {
         self.event_loop.queue.push(action);
-    }
-    pub fn compute_duration<P: AsRef<Path>>(path: P) -> Option<Duration> {
-        let file = File::open(path).unwrap();
-        Mp3Decoder::compute_duration(BufReader::new(file))
     }
 }

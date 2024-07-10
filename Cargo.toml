@@ -17,13 +17,20 @@ id3 = "^0.2.0"
 gtk-sys = "^0.5.0"
 crossbeam ="^0.3.0"
 pulse-simple = "^1.0.0"
-simplemad = "^0.8.1"
 m3u = "^1.0.0"
 actix-web ="4.3.1"
-
+simple_logger ="2.0.0"
+log = "0.4.0"
+#puremp3 = "^0.1.0"
+minimp3_fixed = { version = "0.5.4", optional = true}
+symphonia = { version = "0.5.4", optional = true, default-features = false }
+cpal = "0.15.3"
+rodio = "0.19.0"
 
 [features]
 default = ["sdl2/image"]
+mp3 = ["symphonia-mp3"]
+symphonia-mp3 = ["symphonia/mp3"]
 
 [[bin]]
 name = "show_image"

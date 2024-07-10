@@ -4,6 +4,7 @@ pub mod window;
 pub mod macros;
 pub mod rmusic;
 pub mod epolls;
+pub mod stack_swap;
 
 extern crate sdl2;
 extern crate m3u;
